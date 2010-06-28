@@ -127,6 +127,13 @@ class HobokenTest extends TestCase {
 		$hoboken->GET('/', 'abc');
 	}
 	
+	public function testGET_CanAddValidRouteAndAction() {
+		$hoboken = new Hoboken;
+		$hoboken->GET('/', function() { echo 'hi'; });
+	}
+	//public function testExecute
+	
+	
 	public function providerValidRoute() {
 		return array(
 			array('/'),
