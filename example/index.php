@@ -15,6 +15,10 @@ try {
 	$hoboken->GET('/', function($self) {
 		$self->blah = "some value";
 	}, 'index');
+	
+	$hoboken->GET('/page.html', function($self) {
+		echo 'viewing a page';
+	});
 
 	$hoboken->GET('/hire-me/%n', function($self, $id) {
 		$self->id = $id;
