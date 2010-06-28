@@ -114,14 +114,15 @@ class Hoboken {
 			}
 		}
 		
-		
 		if ( false === $foundRoute ) {
 			$this->responseCode = 404;
 		} else {
 			array_unshift($this->argv, $this);
 			
-			$action = new \ReflectionFunction($actionable['action']);
-			$action->invokeArgs($this->argv);
+			ob_start();
+				$action = new \ReflectionFunction($actionable['action']);
+				$action->invokeArgs($this->argv);
+			$this->render = ob_get_clean();
 		}
 		
 		$view = $actionable['view'];
@@ -149,10 +150,6 @@ class Hoboken {
 		
 		return $this->render;
 	}
-	
-	
-	
-	
 
 	public function isValidRoute($route) {
 		/* Special case of a valid route. */
