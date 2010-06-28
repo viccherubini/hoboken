@@ -4,84 +4,150 @@ declare(encoding='UTF-8');
 
 class Hoboken {
 	
-	private $actionArgv = array();
-	private $actionList = array();
-	private $extractList = array();
-	private $routeSource = array();
-	private $serverParams = array();
-
-	private $layout = NULL;
-	private $layoutDirectory = NULL;
+	public $argv = array();
+	public $contentType = 'text/html';
+	public $debug = false;
+	public $ext = '.phtml';
+	public $layout = NULL;
+	public $layoutDirectory = NULL;
+	public $render = NULL;
+	public $requestMethods = array();
+	public $responseCode = 200;
+	public $routes = array();
+	public $uriParam = '__u';
+	public $viewDirectory = NULL;
+	public $viewVariables = array();
 	
-	private $viewDirectory = NULL;
 	
 	
-	const METHOD_GET = 'GET';
-	const METHOD_POST = 'POST';
+	
+	
 	
 	
 	public function __construct() {
-		
+		$this->requestMethods = array('GET', 'POST', 'PUT', 'DELETE');
 	}
 	
 	public function __destruct() {
-		$this->actionList = array();
-		$this->extractList = array();
+		
+	}
+	
+	public function __call($method, $argv) {
+		$argc = count($argv);
+		$method = strtoupper($method);
+		
+		if ( $argc >= 2 && in_array($method, $this->requestMethods) ) {
+			$route = $argv[0];
+			$action = $argv[1];
+			
+			if ( !$this->isValidRoute($route) ) {
+				throw new \HobokenException("The route {$route} is invalid.");
+			}
+			
+			if ( !$this->isClosure($action) ) {
+				throw new \HobokenException("The action is not a closure.");
+			}
+
+			$view = NULL;
+			if ( $argc >= 3 ) {
+				$view = $argv[2];
+			}
+		
+			$this->routes[$method][$route] = array(
+				'action' => $action,
+				'view' => $view
+			);
+		}
 	}
 	
 	public function __set($k, $v) {
-		$this->extractList[$k] = $v;
+		$this->viewVariables[$k] = $v;
 		return true;
 	}
 	
 	public function __get($k) {
-		if ( array_key_exists($k, $this->extractList) ) {
-			return $this->extractList[$k];
+		if ( array_key_exists($k, $this->viewVariables) ) {
+			return $this->viewVariables[$k];
 		}
 		return NULL;
 	}
 
-	public function setLayout($layout) {
-		$this->layout = trim($layout);
-		return $this;
-	}
-	
-	public function setLayoutDirectory($layoutDirectory) {
-		$this->layoutDirectory = $layoutDirectory;
-		return $this;
-	}
-	
-	public function setViewDirectory($viewDirectory) {
-		$this->viewDirectory = $viewDirectory;
-		return $this;
-	}
-	
-	public function setRouteSource(array $source) {
-		$this->routeSource = $source;
-		return $this;
-	}
-	
-	public function setServerParams(array $server) {
-		$this->serverParams = $server;
-		return $this;
-	}
-	
-	public function GET($route, $action, $view = NULL) {
-		$this->addRouteAndAction(self::METHOD_GET, $route, $action, $view);
-		return $this;
-	}
-	
-	public function POST($route, $action, $view = NULL) {
-		$this->addRouteAndAction(self::METHOD_POST, $route, $action, $view);
-		return $this;
-	}
-	
 	
 	public function execute() {
+		if ( 0 === count($this->routes) ) {
+			throw new \HobokenException("The Route List is empty. Please add at least one route.");
+		}
+		
+		if ( !empty($this->layoutDirectory) && !is_dir($this->layoutDirectory) ) {
+			throw new \HobokenException("The layout directory {$this->layoutDirectory} can not be found on the filesystem.");
+		}
+		
+		if ( !empty($this->viewDirectory) && !is_dir($this->viewDirectory) ) {
+			throw new \HobokenException("The view directory {$this->layoutDirectory} can not be found on the filesystem.");
+		}
+		
+		$requestMethod = NULL;
+		if ( isset($_SERVER) && array_key_exists('REQUEST_METHOD', $_SERVER) ) {
+			$requestMethod = strtoupper($_SERVER['REQUEST_METHOD']);
+		}
+		
+		$routes = array();
+		if ( array_key_exists($requestMethod, $this->routes) ) {
+			$routes = $this->routes[$requestMethod];
+		}
+		
+		if ( 0 === count($routes) ) {
+			throw new \HobokenException("There are no routes configured for the {$requestMethod} request method.");
+		}
+		
+		$uri = NULL;
+		if ( isset($_REQUEST) && array_key_exists($this->uriParam, $_REQUEST) ) {
+			$uri = $_REQUEST[$this->uriParam];
+		}
+		
+		$foundRoute = false;
+		
+		foreach ( $routes as $route => $actionable ) {
+			if ( $this->canRouteUri($route, $uri) ) {
+				$foundRoute = true;
+				break;
+			}
+		}
 		
 		
+		if ( false === $foundRoute ) {
+			$this->responseCode = 404;
+		} else {
+			array_unshift($this->argv, $this);
+			
+			$action = new \ReflectionFunction($actionable['action']);
+			$action->invokeArgs($this->argv);
+		}
 		
+		$view = $actionable['view'];
+		if ( 404 == $this->responseCode ) {
+			$view = '404';
+		}
 		
+		header("Content-Type: {$this->contentType}", true, $this->responseCode);
+		
+		$layoutFile = "{$this->layoutDirectory}{$this->layout}{$this->ext}";
+		$viewFile = "{$this->viewDirectory}{$view}{$this->ext}";
+		
+		if ( is_file($viewFile) ) {
+			extract($this->viewVariables);
+			ob_start();
+				require $viewFile;
+			$this->render = ob_get_clean();
+		}
+		
+		if ( is_file($layoutFile) ) {
+			ob_start();
+				require $layoutFile;
+			$this->render = ob_get_clean();
+		}
+		
+		return $this->render;
 	}
 	
 	
@@ -181,33 +247,8 @@ class Hoboken {
 	
 		return ( $matchedChunkCount === $routeChunkCount );
 	}
-	
-	private function addRouteAndAction($requestMethod, $route, $action, $view) {
-		$this->hasValidRoute($route);
-		$this->hasClosure($action);
-		
-		$routeObject = new \stdClass;
-		$routeObject->route = $route;
-		$routeObject->action = $action;
-		$routeObject->view = $view;
-		
-		$this->actionList[$requestMethod][] = $routeObject;
-		
-	}
-	
-	private function hasValidRoute($route) {
-		if ( !$this->isValidRoute($route) ) {
-			throw new \Exception("The route {$route} is invalid and can not be properly translated.");
-		}
-	}
-	
+
 	private function isClosure($closure) {
 		return ( $closure instanceof \Closure );
-	}
-	
-	private function hasClosure($closure) {
-		if ( !$this->isClosure($closure) ) {
-			throw new \Exception("The action is invalid because it is not a closure.");
-		}
 	}
 }

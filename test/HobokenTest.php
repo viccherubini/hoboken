@@ -6,6 +6,7 @@ namespace HobokenTest;
 use \Hoboken;
 
 require_once 'lib/Hoboken.php';
+require_once 'lib/Exception.php';
 
 class HobokenTest extends TestCase {
 
@@ -22,56 +23,6 @@ class HobokenTest extends TestCase {
 		$hoboken = new Hoboken;
 		
 		$this->assertEquals(NULL, $hoboken->invalid_key);
-	}
-	
-	public function testSetLayout_CanSetTheLayoutName() {
-		$hoboken = new Hoboken;
-		
-		$this->assertHoboken($hoboken->setLayout('leftnode'));
-	}
-	
-	public function testSetLayoutDirectory_CanSetTheLayoutDirectory() {
-		$hoboken = new Hoboken;
-		
-		$this->assertHoboken($hoboken->setLayoutDirectory('public/layout/'));
-	}
-	
-	public function testSetViewDirectory_CanSetTheViewDirectory() {
-		$hoboken = new Hoboken;
-		
-		$this->assertHoboken($hoboken->setViewDirectory('public/view/'));
-	}
-	
-	/**
-	 * @expectedException PHPUnit_Framework_Error
-	 * @dataProvider providerInvalidArray
-	 */
-	public function testSetRouteSource_MustBeArray($invalidSource) {
-		$hoboken = new Hoboken;
-		
-		$hoboken->setRouteSource($invalidSource);
-	}
-	
-	public function testSetRouteSource_CanSetTheRouteSource() {
-		$hoboken = new Hoboken;
-		
-		$this->assertHoboken($hoboken->setRouteSource(array('key' => 'value')));
-	}
-	
-	/**
-	 * @expectedException PHPUnit_Framework_Error
-	 * @dataProvider providerInvalidArray
-	 */
-	public function testSetServerParams_MustBeArray($invalidParams) {
-		$hoboken = new Hoboken;
-		
-		$hoboken->setServerParams($invalidParams);
-	}
-	
-	public function testSetServerParams_CanSetTheServerParams() {
-		$hoboken = new Hoboken;
-		
-		$this->assertHoboken($hoboken->setServerParams(array('key' => 'value')));
 	}
 	
 	/**
@@ -112,7 +63,7 @@ class HobokenTest extends TestCase {
 	
 	/**
 	 * @dataProvider providerInvalidRoute
-	 * @expectedException \Exception
+	 * @expectedException \HobokenException
 	 */
 	public function testGET_CanOnlyAddValidRoute($routeName) {
 		$hoboken = new Hoboken;
@@ -120,7 +71,7 @@ class HobokenTest extends TestCase {
 	}
 	
 	/**
-	 * @expectedException \Exception
+	 * @expectedException \HobokenException
 	 */
 	public function testGET_CanOnlyAddClosuresAsActions() {
 		$hoboken = new Hoboken;
@@ -131,7 +82,8 @@ class HobokenTest extends TestCase {
 		$hoboken = new Hoboken;
 		$hoboken->GET('/', function() { echo 'hi'; });
 	}
-	//public function testExecute
+	
+	
 	
 	
 	public function providerValidRoute() {
