@@ -8,4 +8,8 @@ class MiscTest extends TestCase {
 	public function testTrue() {
 		$this->assertTrue(true);
 	}
+	
+	public function testStdClass_CanBeBuiltFromArray() {
+		
+	}
 }
