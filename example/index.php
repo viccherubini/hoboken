@@ -4,12 +4,13 @@ declare(encoding='UTF-8');
 
 require_once 'Hoboken/Framework.php';
 
-$hoboken = new \Hoboken;
-$hoboken->layout = 'leftnode';
-$hoboken->layoutDirectory = 'public/layout/';
-$hoboken->viewDirectory = 'public/view/';
-
 try {
+	$hoboken = new \Hoboken;
+	$hoboken->setLayout('leftnode.phtml')
+		->setLayoutDirectory('public/layout/')
+		->setViewDirectory('public/view/')
+		->setSiteRoot('http://hoboken.dev')
+		->setSiteRootSecure('https://hoboken.dev');
 
 	$hoboken->GET('/', function($self) {
 		$self->blah = "some value";
