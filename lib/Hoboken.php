@@ -4,32 +4,35 @@ declare(encoding='UTF-8');
 
 class Hoboken {
 	
-	public $argv = array();
 	public $contentType = 'text/html';
-	public $debug = false;
-	public $ext = '.phtml';
-	public $layout = NULL;
-	public $layoutDirectory = NULL;
-	public $render = NULL;
-	public $requestMethods = array();
 	public $responseCode = 200;
-	public $routes = array();
-	public $uriParam = '__u';
-	public $viewDirectory = NULL;
-	public $viewVariables = array();
 	
-	
-	
-	
-	
+	private $ext = '.phtml';
+	private $layout = NULL;
+	private $layoutDirectory = NULL;
+	private $render = NULL;
+	private $requestMethods = array();
+	private $routes = array();
+	private $siteRoot = NULL;
+	private $siteRootSecure = NULL;
+	private $viewDirectory = NULL;
+	private $viewVariables = array();
+	private $uriParam = '__u';
 	
 	
 	public function __construct() {
+		$sapi = strtolower(php_sapi_name());
+		if ( 'cli' == $sapi ) {
+			throw new \HobokenException("Hoboken must be run from a webserver.");
+		}
+		
 		$this->requestMethods = array('GET', 'POST', 'PUT', 'DELETE');
 	}
 	
 	public function __destruct() {
-		
+		$this->render = NULL;
+		$this->routes = array();
+		$this->viewVariables = array();
 	}
 	
 	public function __call($method, $argv) {
@@ -40,24 +43,18 @@ class Hoboken {
 			$route = $argv[0];
 			$action = $argv[1];
 			
-			if ( !$this->isValidRoute($route) ) {
-				throw new \HobokenException("The route {$route} is invalid.");
-			}
-			
-			if ( !$this->isClosure($action) ) {
-				throw new \HobokenException("The action is not a closure.");
-			}
-
-			$view = NULL;
-			if ( $argc >= 3 ) {
-				$view = $argv[2];
-			}
+			if ( $this->isValidRoute($route) && $this->isValidClosure($action) ) {
+				$view = NULL;
+				if ( $argc >= 3 ) {
+					$view = $argv[2];
+				}
 		
-			$this->routes[$method][$route] = array(
-				'action' => $action,
-				'view' => $view
-			);
+				$routeObject = new \HobokenRoute($route, $action, $view);
+				$this->routes[$method][] = $routeObject;
+			}
 		}
+		
+		return $this;
 	}
 	
 	public function __set($k, $v) {
@@ -71,21 +68,52 @@ class Hoboken {
 		}
 		return NULL;
 	}
-
+	
+	public function setLayout($layout) {
+		if ( 0 == preg_match("/{$this->ext}$/i", $layout) ) {
+			$layout .= $this->ext;
+		}
+		$this->layout = $layout;
+		return $this;
+	}
+	
+	public function setLayoutDirectory($layoutDirectory) {
+		$len = strlen($layoutDirectory)-1;
+		if ( DIRECTORY_SEPARATOR != $layoutDirectory[$len] ) {
+			$layoutDirectory .= DIRECTORY_SEPARATOR;
+		}
+		$this->layoutDirectory = $layoutDirectory;
+		return $this;
+	}
+	
+	public function setViewDirectory($viewDirectory) {
+		$len = strlen($viewDirectory)-1;
+		if ( DIRECTORY_SEPARATOR != $viewDirectory[$len] ) {
+			$viewDirectory .= DIRECTORY_SEPARATOR;
+		}
+		$this->viewDirectory = $viewDirectory;
+		return $this;
+	}
+	
+	public function setSiteRoot($siteRoot) {
+		$len = strlen($siteRoot)-1;
+		if ( '/' != $siteRoot[$len] ) {
+			$siteRoot .= '/';
+		}
+		$this->siteRoot = $siteRoot;
+		return $this;
+	}
+	
+	public function setSiteRootSecure($siteRootSecure) {
+		$len = strlen($siteRootSecure)-1;
+		if ( '/' != $siteRootSecure[$len] ) {
+			$siteRootSecure .= '/';
+		}
+		$this->siteRootSecure = $siteRootSecure;
+		return $this;
+	}
 	
 	public function execute() {
-		if ( 0 === count($this->routes) ) {
-			throw new \HobokenException("The Route List is empty. Please add at least one route.");
-		}
-		
-		if ( !empty($this->layoutDirectory) && !is_dir($this->layoutDirectory) ) {
-			throw new \HobokenException("The layout directory {$this->layoutDirectory} can not be found on the filesystem.");
-		}
-		
-		if ( !empty($this->viewDirectory) && !is_dir($this->viewDirectory) ) {
-			throw new \HobokenException("The view directory {$this->layoutDirectory} can not be found on the filesystem.");
-		}
-		
 		$requestMethod = NULL;
 		if ( isset($_SERVER) && array_key_exists('REQUEST_METHOD', $_SERVER) ) {
 			$requestMethod = strtoupper($_SERVER['REQUEST_METHOD']);
@@ -96,10 +124,6 @@ class Hoboken {
 			$routes = $this->routes[$requestMethod];
 		}
 		
-		if ( 0 === count($routes) ) {
-			throw new \HobokenException("There are no routes configured for the {$requestMethod} request method.");
-		}
-		
 		$uri = NULL;
 		if ( isset($_REQUEST) && array_key_exists($this->uriParam, $_REQUEST) ) {
 			$uri = $_REQUEST[$this->uriParam];
@@ -107,8 +131,8 @@ class Hoboken {
 		
 		$foundRoute = false;
 		
-		foreach ( $routes as $route => $actionable ) {
-			if ( $this->canRouteUri($route, $uri) ) {
+		foreach ( $routes as $routeObject ) {
+			if ( $routeObject->canRouteUri($uri) ) {
 				$foundRoute = true;
 				break;
 			}
@@ -117,22 +141,23 @@ class Hoboken {
 		if ( false === $foundRoute ) {
 			$this->responseCode = 404;
 		} else {
-			array_unshift($this->argv, $this);
+			$argv = $routeObject->getArgv();
+			array_unshift($argv, $this);
 			
 			ob_start();
-				$action = new \ReflectionFunction($actionable['action']);
-				$action->invokeArgs($this->argv);
+				$routeAction = new \ReflectionFunction($routeObject->getAction());
+				$routeAction->invokeArgs($argv);
 			$this->render = ob_get_clean();
 		}
 		
-		$view = $actionable['view'];
-		if ( 404 == $this->responseCode ) {
+		$view = $routeObject->getView();
+		if ( $this->isMissingRoute() ) {
 			$view = '404';
 		}
 		
 		header("Content-Type: {$this->contentType}", true, $this->responseCode);
 		
-		$layoutFile = "{$this->layoutDirectory}{$this->layout}{$this->ext}";
+		$layoutFile = "{$this->layoutDirectory}{$this->layout}";
 		$viewFile = "{$this->viewDirectory}{$view}{$this->ext}";
 		
 		if ( is_file($viewFile) ) {
@@ -150,8 +175,53 @@ class Hoboken {
 		
 		return $this->render;
 	}
-
-	public function isValidRoute($route) {
+	
+	public function safe($v) {
+		return htmlspecialchars($v, ENT_COMPAT, 'UTF-8');
+	}
+	
+	public function href($url, $text) {
+		$text = $this->safe($text);
+		$href = '<a href="' . $url . '">' . $text . '</a>';
+		return $href;
+	}
+	
+	public function url() {
+		$url = $this->createUrl(func_num_args(), func_get_args());
+		$url = $this->siteRoot . $url;
+		
+		return $url;
+	}
+	
+	public function urls() {
+		$url = $this->createUrl(func_num_args(), func_get_args());
+		$url = $this->siteRootSecure . $url;
+		
+		return $url;
+	}
+	
+	private function createUrl($argc, $argv) {
+		if ( 0 == $argc ) {
+			return NULL;
+		}
+		
+		$param = NULL;
+		$loc = $argv[0];
+		if ( $argc > 1 ) {
+			$argv = array_slice($argv, 1);
+			$param = '/' . implode('/', $argv);
+		}
+		
+		$url = $loc . $param;
+		
+		return $url;
+	}
+	
+	private function isMissingRoute() {
+		return ( 404 == $this->responseCode );
+	}
+	
+	private function isValidRoute($route) {
 		/* Special case of a valid route. */
 		if ( '/' == $route ) {
 			return true;
@@ -168,84 +238,8 @@ class Hoboken {
 		return true;
 	}
 
-	public function canRouteUri($route, $uri) {
-		/* Remove the beginning / from the URI and route. */
-		$uri = ltrim($uri, '/');
-		$uriChunkList = explode('/', $uri);
-		$uriChunkCount = count($uriChunkList);
-		
-		$route = ltrim($route, '/');
-		$routeChunkList = explode('/', $route);
-		$routeChunkCount = count($routeChunkList);
-		
-		/* If all of the chunks eventually match, we have a matched route. */
-		$matchedChunkCount = 0;
-
-		/* List of arguments to pass to the action method. */
-		$argv = array();
-
-		if ( $uriChunkCount === $routeChunkCount ) {
-			for ( $i=0; $i<$routeChunkCount; $i++ ) {
-				/* ucv == uri chunk value */
-				$ucv = $uriChunkList[$i];
-				
-				/* rcv = route chunk value */
-				$rcv = $routeChunkList[$i];
-
-				if ( $ucv == $rcv ) {
-					/* If the two are exactly the same, no expansion is needed. */
-					$matchedChunkCount++;
-				} else {
-					/**
-					 * More investigation is required. See if there is a % character followed by a (n|s), and if so, expand it.
-					 * A limitation is that only a single % replacement can exist in a chunk at once, for now.
-					 * 
-					 * @todo Allow multiple %n or %s characters in a chunk at once.
-					 */
-					$offset = stripos($rcv, '%');
-					if ( false !== $offset && true === isset($rcv[$offset+1]) ) {
-						$rcvType = $rcv[$offset+1];
-						$rcvLength = strlen($rcv);
-						
-						if ( 0 !== $offset ) {
-							$ucv = trim(substr_replace($ucv, NULL, 0, $offset));
-						}
-						
-						if ( ($offset+2) < $rcvLength ) {
-							$goto = strlen(substr($rcv, $offset+2));
-							$ucv = substr_replace($ucv, NULL, -$goto);
-						}
-						
-						/* Now that we have the correct $ucv values, let's make sure they're types are correct. */
-						$matched = false;
-						
-						switch ( $rcvType ) {
-							case 'n': {
-								$matched = is_numeric($ucv);
-								break;
-							}
-							
-							case 's': {
-								$matched = is_string($ucv) && !is_numeric($ucv);
-								break;
-							}
-						}
-						
-						if ( true === $matched ) {
-							$matchedChunkCount++;
-							$argv[$rcv] = $ucv;
-						}
-					}
-				}
-			}
-		}
-		
-		$this->argv = $argv;
-	
-		return ( $matchedChunkCount === $routeChunkCount );
-	}
-
-	private function isClosure($closure) {
+	private function isValidClosure($closure) {
 		return ( $closure instanceof \Closure );
 	}
+	
 }
