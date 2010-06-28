@@ -5,7 +5,7 @@ namespace HobokenTest;
 
 use \Hoboken;
 
-require_once 'Hoboken/Hoboken.php';
+require_once 'lib/Hoboken.php';
 
 class HobokenTest extends TestCase {
 
