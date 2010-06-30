@@ -130,7 +130,6 @@ class Hoboken {
 		}
 		
 		$foundRoute = false;
-		
 		foreach ( $routes as $routeObject ) {
 			if ( $routeObject->canRouteUri($uri) ) {
 				$foundRoute = true;
@@ -160,8 +159,8 @@ class Hoboken {
 		$layoutFile = "{$this->layoutDirectory}{$this->layout}";
 		$viewFile = "{$this->viewDirectory}{$view}{$this->ext}";
 		
+		extract($this->viewVariables);
 		if ( is_file($viewFile) ) {
-			extract($this->viewVariables);
 			ob_start();
 				require $viewFile;
 			$this->render = ob_get_clean();
