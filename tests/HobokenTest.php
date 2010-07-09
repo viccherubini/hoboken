@@ -10,13 +10,19 @@ require_once 'lib/Exception.php';
 
 class HobokenTest extends TestCase {
 
+	private $hoboken = NULL;
+
+	public function setUp() {
+		$this->hoboken = new \Hoboken(true);
+	}
+
+
 	public function testMagicSetter_AddsVariableToExtractList() {
 		$value = "some value";
 		
-		$hoboken = new Hoboken(true);
-		$hoboken->some_key = $value;
+		$this->hoboken->some_key = $value;
 		
-		$this->assertEquals($value, $hoboken->some_key);
+		$this->assertEquals($value, $this->hoboken->some_key);
 	}
 	
 	public function providerValidRoute() {
