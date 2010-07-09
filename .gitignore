@@ -1,2 +1,2 @@
-test/_Coverage
-test/Bootstrap.php
+tests/coverage-html
+tests/Bootstrap.php

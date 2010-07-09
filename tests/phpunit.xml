@@ -1,0 +1,18 @@
+<phpunit bootstrap="Bootstrap.php" colors="true" convertErrorsToExceptions="true" convertNoticesToExceptions="true" convertWarningsToExceptions="true" stopOnFailure="false" syntaxCheck="true">
+	
+	<testsuites>
+		<testsuite name="Hoboken Tests">
+			<file>AllTests.php</file>
+		</testsuite>
+	</testsuites>
+
+	<filter>
+		<whitelist>
+			<directory suffix=".php">../lib/</directory>
+		</whitelist>
+	</filter>
+	
+	<logging>
+		<log type="coverage-html" target="coverage-html" charset="UTF-8" yui="true" highlight="true" />
+	</logging>
+</phpunit>
