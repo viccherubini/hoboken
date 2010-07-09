@@ -6,6 +6,7 @@ class Hoboken {
 	
 	public $contentType = 'text/html';
 	public $responseCode = 200;
+	public $redirect = NULL;
 	
 	private $ext = '.phtml';
 	private $layout = NULL;
@@ -18,7 +19,6 @@ class Hoboken {
 	private $viewDirectory = NULL;
 	private $viewVariables = array();
 	private $uriParam = '__u';
-	
 	
 	public function __construct() {
 		$sapi = strtolower(php_sapi_name());
@@ -155,6 +155,9 @@ class Hoboken {
 		}
 		
 		header("Content-Type: {$this->contentType}", true, $this->responseCode);
+		if ( !empty($this->redirect) ) {
+			header("Location: {$this->redirect}");
+		}
 		
 		$layoutFile = "{$this->layoutDirectory}{$this->layout}";
 		$viewFile = "{$this->viewDirectory}{$view}{$this->ext}";
