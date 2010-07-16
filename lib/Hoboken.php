@@ -233,7 +233,7 @@ class Hoboken {
 		 * Hoboken is more restrictive about routes than the normal Internet RFC
 		 * standards. This is to keep them clean, legible and readible.
 		 */
-		if ( 0 === preg_match('#^/([a-z]+)([a-z0-9_\-/%\.]*)$#i', $route) ) {
+		if ( 0 === preg_match('#^/([a-z%]+)([a-z0-9_\-/%\.]*)$#i', $route) ) {
 			return false;
 		}
 		
