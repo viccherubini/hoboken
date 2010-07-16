@@ -10,81 +10,20 @@ require_once 'lib/Exception.php';
 
 class HobokenTest extends TestCase {
 
+	private $hoboken = NULL;
+
+	public function setUp() {
+		$this->hoboken = new \Hoboken(true);
+	}
+
+
 	public function testMagicSetter_AddsVariableToExtractList() {
 		$value = "some value";
 		
-		$hoboken = new Hoboken;
-		$hoboken->some_key = $value;
+		$this->hoboken->some_key = $value;
 		
-		$this->assertEquals($value, $hoboken->some_key);
+		$this->assertEquals($value, $this->hoboken->some_key);
 	}
-	
-	public function testMagicGetter_ReturnsNullForUnsetVariable() {
-		$hoboken = new Hoboken;
-		
-		$this->assertEquals(NULL, $hoboken->invalid_key);
-	}
-	
-	/**
-	 * @dataProvider providerValidRoute
-	 */
-	public function testIsValidRoute_ValidRouteReturnsTrue($routeName) {
-		$hoboken = new Hoboken;
-		
-		$this->assertTrue($hoboken->isValidRoute($routeName));
-	}
-	
-	/**
-	 * @dataProvider providerInvalidRoute
-	 */
-	public function testIsValidRoute_InvalidRouteReturnsFalse($routeName) {
-		$hoboken = new Hoboken;
-		
-		$this->assertFalse($hoboken->isValidRoute($routeName));
-	}
-	
-	/**
-	 * @dataProvider providerValidRouteAndUri
-	 */
-	public function testCanRouteUri_WithValidRoute($routeName, $uri) {
-		$hoboken = new Hoboken;
-		
-		$this->assertTrue($hoboken->canRouteUri($routeName, $uri));
-	}
-	
-	/**
-	 * @dataProvider providerInvalidRouteAndUri
-	 */
-	public function testCanRouteUri_FailsWithInvalidRoute($routeName, $uri) {
-		$hoboken = new Hoboken;
-	
-		$this->assertFalse($hoboken->canRouteUri($routeName, $uri));
-	}
-	
-	/**
-	 * @dataProvider providerInvalidRoute
-	 * @expectedException \HobokenException
-	 */
-	public function testGET_CanOnlyAddValidRoute($routeName) {
-		$hoboken = new Hoboken;
-		$hoboken->GET($routeName, function() {});
-	}
-	
-	/**
-	 * @expectedException \HobokenException
-	 */
-	public function testGET_CanOnlyAddClosuresAsActions() {
-		$hoboken = new Hoboken;
-		$hoboken->GET('/', 'abc');
-	}
-	
-	public function testGET_CanAddValidRouteAndAction() {
-		$hoboken = new Hoboken;
-		$hoboken->GET('/', function() { echo 'hi'; });
-	}
-	
-	
-	
 	
 	public function providerValidRoute() {
 		return array(

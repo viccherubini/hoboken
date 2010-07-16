@@ -20,9 +20,9 @@ class Hoboken {
 	private $viewVariables = array();
 	private $uriParam = '__u';
 	
-	public function __construct() {
+	public function __construct($ignoreSapiCheck=false) {
 		$sapi = strtolower(php_sapi_name());
-		if ( 'cli' == $sapi ) {
+		if ( false === $ignoreSapiCheck && 'cli' == $sapi ) {
 			throw new \HobokenException("Hoboken must be run from a webserver.");
 		}
 		
