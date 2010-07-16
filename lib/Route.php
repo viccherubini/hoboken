@@ -41,7 +41,7 @@ class HobokenRoute {
 		$route = ltrim($route, '/');
 		$routeChunkList = explode('/', $route);
 		$routeChunkCount = count($routeChunkList);
-		
+
 		// If all of the chunks eventually match, we have a matched route.
 		$matchedChunkCount = 0;
 
@@ -82,7 +82,7 @@ class HobokenRoute {
 						
 						// Now that we have the correct $ucv values, let's make sure they're types are correct.
 						$matched = false;
-						
+
 						switch ( $rcvType ) {
 							case 'n': {
 								$matched = is_numeric($ucv);
@@ -97,7 +97,7 @@ class HobokenRoute {
 						
 						if ( true === $matched ) {
 							$matchedChunkCount++;
-							$argv[$rcv] = $ucv;
+							$argv[] = $ucv;
 						}
 					}
 				}
