@@ -1,6 +1,7 @@
 <?php
 
 declare(encoding='UTF-8');
+namespace Hoboken;
 
 class Hoboken {
 	
@@ -9,9 +10,11 @@ class Hoboken {
 	public $redirect = NULL;
 	
 	private $ext = '.phtml';
+	private $init = NULL;
 	private $layout = NULL;
 	private $layoutDirectory = NULL;
-	private $render = NULL;
+	private $methods = array();
+	private $rendering = NULL;
 	private $requestMethods = array();
 	private $routes = array();
 	private $siteRoot = NULL;
@@ -23,14 +26,14 @@ class Hoboken {
 	public function __construct($ignoreSapiCheck=false) {
 		$sapi = strtolower(php_sapi_name());
 		if ( false === $ignoreSapiCheck && 'cli' == $sapi ) {
-			throw new \HobokenException("Hoboken must be run from a webserver.");
+			throw new \Hoboken\Exception("Hoboken must be run from a webserver.");
 		}
 		
 		$this->requestMethods = array('GET', 'POST', 'PUT', 'DELETE');
 	}
 	
 	public function __destruct() {
-		$this->render = NULL;
+		$this->rendering = NULL;
 		$this->routes = array();
 		$this->viewVariables = array();
 	}
@@ -49,7 +52,7 @@ class Hoboken {
 					$view = $argv[2];
 				}
 		
-				$routeObject = new \HobokenRoute($route, $action, $view);
+				$routeObject = new Route($route, $action, $view);
 				$this->routes[$method][] = $routeObject;
 			}
 		}
@@ -66,6 +69,23 @@ class Hoboken {
 		if ( array_key_exists($k, $this->viewVariables) ) {
 			return $this->viewVariables[$k];
 		}
+		return NULL;
+	}
+	
+	public function init(\Closure $init) {
+		$this->init = $init;
+		return $this;
+	}
+	
+	public function method($name, \Closure $method = NULL) {
+		if ( !is_null($method) ) {
+			$this->methods[$name] = $method;
+		}
+		
+		if ( array_key_exists($name, $this->methods) ) {
+			return $this->methods[$name];
+		}
+		
 		return NULL;
 	}
 	
@@ -113,6 +133,14 @@ class Hoboken {
 		return $this;
 	}
 	
+	public function from($array, $field, $default=NULL) {
+		if ( array_key_exists($field, $array) ) {
+			$default = $array[$field];
+		}
+		
+		return $default;
+	}
+	
 	public function execute() {
 		$requestMethod = NULL;
 		if ( isset($_SERVER) && array_key_exists('REQUEST_METHOD', $_SERVER) ) {
@@ -141,12 +169,15 @@ class Hoboken {
 			$this->responseCode = 404;
 		} else {
 			$argv = $routeObject->getArgv();
-			array_unshift($argv, $this);
+			
+			if ( !is_null($this->init) && $this->init instanceof \Closure ) {
+				call_user_func($this->init);
+			}
 			
 			ob_start();
 				$routeAction = new \ReflectionFunction($routeObject->getAction());
 				$routeAction->invokeArgs($argv);
-			$this->render = ob_get_clean();
+			$this->rendering = ob_get_clean();
 		}
 		
 		$view = $routeObject->getView();
@@ -159,23 +190,33 @@ class Hoboken {
 			header("Location: {$this->redirect}");
 		}
 		
-		$layoutFile = "{$this->layoutDirectory}{$this->layout}";
-		$viewFile = "{$this->viewDirectory}{$view}{$this->ext}";
+		$layoutFile = $this->layoutDirectory . $this->layout;
 		
-		extract($this->viewVariables);
-		if ( is_file($viewFile) ) {
-			ob_start();
-				require $viewFile;
-			$this->render = ob_get_clean();
+		if ( !empty($view) ) {
+			$this->rendering = $this->render($view);
 		}
 		
 		if ( is_file($layoutFile) ) {
 			ob_start();
 				require $layoutFile;
-			$this->render = ob_get_clean();
+			$this->rendering = ob_get_clean();
 		}
 		
-		return $this->render;
+		return $this->rendering;
+	}
+	
+	public function render($view) {
+		$rendering = NULL;
+		$viewFile = $this->viewDirectory . $view . $this->ext;
+		
+		extract($this->viewVariables);
+		if ( is_file($viewFile) ) {
+			ob_start();
+				require $viewFile;
+			$rendering = ob_get_clean();
+		}
+		
+		return $rendering;
 	}
 	
 	public function safe($v) {
