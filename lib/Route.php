@@ -1,15 +1,16 @@
 <?php
 
 declare(encoding='UTF-8');
+namespace Hoboken;
 
-class HobokenRoute {
+class Route {
 
 	private $argv = array();
 	private $route = NULL;
 	private $action = NULL;
 	private $view = NULL;
 
-	public function __construct($route, Closure $action, $view) {
+	public function __construct($route, \Closure $action, $view) {
 		$this->route = $route;
 		$this->action = $action;
 		$this->view = $view;
