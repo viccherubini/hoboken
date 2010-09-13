@@ -1,5 +1,6 @@
 <?php
 
 declare(encoding='UTF-8');
+namespace Hoboken;
 
-class HobokenException extends \Exception { }
+class Exception extends \Exception { }
